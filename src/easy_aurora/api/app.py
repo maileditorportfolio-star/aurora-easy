@@ -8,7 +8,6 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from ..api.envelope import fail, ok
-from ..config import get_settings
 from ..rag.pipeline import RagPipeline
 from ..utils.logging import configure_logging, get_logger
 
@@ -23,8 +22,6 @@ _pipeline: RagPipeline | None = None
 def get_pipeline() -> RagPipeline:
     global _pipeline
     if _pipeline is None:
-        settings = get_settings()
-        settings.validate()
         _pipeline = RagPipeline(store_path=Path("data/store.json"))
     return _pipeline
 
@@ -41,15 +38,19 @@ def health():
 
 @app.post("/documents/upload")
 def upload_document(file: UploadFile = File(...)):  # noqa: B008
-    upload_dir = Path("data/uploads")
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    dest = upload_dir / (file.filename or "upload.txt")
-    content = file.file.read()
-    dest.write_bytes(content)
-    pipeline = get_pipeline()
-    count = pipeline.ingest(dest, metadata={"source": file.filename or ""})
-    logger.info("document_ingested", filename=file.filename, chunks=count)
-    return ok({"filename": file.filename, "chunks": count})
+    try:
+        upload_dir = Path("data/uploads")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        dest = upload_dir / (file.filename or "upload.txt")
+        content = file.file.read()
+        dest.write_bytes(content)
+        pipeline = get_pipeline()
+        count = pipeline.ingest(dest, metadata={"source": file.filename or ""})
+        logger.info("document_ingested", filename=file.filename, chunks=count)
+        return ok({"filename": file.filename, "chunks": count})
+    except Exception as e:  # noqa: BLE001
+        logger.error("upload_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=fail("Upload failed", details=str(e))) from e
 
 
 @app.post("/query")
