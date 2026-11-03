@@ -15,19 +15,26 @@ A Python RAG (Retrieval-Augmented Generation) system for internal knowledge base
 ## Quick Start
 
 ```bash
-# Install dependencies
-pip install -e .
+# Install dependencies (locked)
+uv sync --extra dev
 
 # Configure environment
 cp .env.example .env
 # Edit .env with your API keys
 
 # Run tests
-pytest
+uv run pytest
+
+# Lint
+uv run ruff check .
 
 # Start the API server
-python -m easy_aurora --serve
+uv run python -m easy_aurora --serve
 # API at http://localhost:8000, docs at /docs
+
+# Or run with Docker
+docker build -t easy-aurora .
+docker run -p 8000:8000 --env-file .env easy-aurora
 ```
 
 ## API Endpoints
